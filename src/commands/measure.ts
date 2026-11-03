@@ -111,7 +111,7 @@ export async function runMeasure(
     schemaVersion: 1,
     tool: { name: "rn-sizewatch", version: context.version },
     createdAt: new Date().toISOString(),
-    project: { kind: project.kind, reactNative: project.reactNative, ...(project.expo ? { expo: project.expo } : {}), entry: project.entry, hermes: project.hermes },
+    project: { ...(project.name ? { name: project.name } : {}), kind: project.kind, reactNative: project.reactNative, ...(project.expo ? { expo: project.expo } : {}), entry: project.entry, hermes: project.hermes },
     platforms: {},
   };
   const git = await gitInfo(exec, root);

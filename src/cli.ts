@@ -7,6 +7,7 @@ import { ciPrepareCommand, ciRunCommand } from "./commands/ci.js";
 import { checkCommand, compareCommand } from "./commands/compare.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { DEFAULT_OUT, measureCommand } from "./commands/measure.js";
+import { reportCommand } from "./commands/report.js";
 import { CONFIG_FILE } from "./core/config.js";
 import { UserError } from "./core/exec.js";
 
@@ -54,6 +55,15 @@ export function buildProgram(): Command {
     .option("--base <measure.json>", "a base measurement, for the increase budget")
     .option("--json", "print the results as JSON")
     .action((file, options) => checkCommand(file, options));
+
+  program
+    .command("report")
+    .description("Write an HTML report: a treemap of the bundle, packages, files, assets and suggestions")
+    .argument("[measure.json]", `default: ${DEFAULT_OUT}/measure.json`)
+    .option("-C, --cwd <dir>", "folder the paths are relative to", process.cwd())
+    .option("--base <measure.json>", "a base measurement, to show what changed")
+    .option("-o, --out <file>", `where to write it (default: ${DEFAULT_OUT}/report.html)`)
+    .action((file, options) => reportCommand(file, options, version));
 
   program
     .command("doctor")

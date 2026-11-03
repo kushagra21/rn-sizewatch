@@ -116,7 +116,8 @@ describe("run", () => {
     const root = app();
     const tmp = makeDir({});
     const result = await run(undefined, { cwd: root, mode: "baseline", tmp, comment: true, version: "0.1.0" }, { exec: fakeExec(), log: () => {} });
-    expect(result).toEqual({ measureFile: join(tmp, "head/measure.json"), failed: false });
+    expect(result).toEqual({ measureFile: join(tmp, "head/measure.json"), reportFile: join(tmp, "report.html"), failed: false });
+    expect(readFileSync(result.reportFile, "utf8")).toContain("<title>Bundle size · app</title>");
   });
 
   it("compares with the downloaded base, comments, and reports a failed budget", async () => {

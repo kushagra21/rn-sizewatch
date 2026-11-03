@@ -12,7 +12,7 @@ import { argAfter, bareApp, fakeExec, makeDir } from "./helpers.js";
 describe("detectProject", () => {
   it("finds a bare app's entry and keeps Hermes on by default", () => {
     const root = bareApp();
-    expect(detectProject(root)).toEqual({ root, kind: "bare", reactNative: "0.83.6", entry: "index.js", hermes: { ios: true, android: true } });
+    expect(detectProject(root)).toEqual({ root, name: "app", kind: "bare", reactNative: "0.83.6", entry: "index.js", hermes: { ios: true, android: true } });
   });
 
   it("prefers package.json main and notices Hermes turned off per platform", () => {
@@ -95,7 +95,7 @@ describe("runMeasure", () => {
     expect(existsSync(join(root, ".sizewatch/ios/main.jsbundle"))).toBe(true);
     expect(existsSync(join(root, ".sizewatch/android/bundle.hbc"))).toBe(true);
     expect(measurement.git).toEqual({ commit: "abc123", branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || "feature/x" });
-    expect(measurement.project).toEqual({ kind: "bare", reactNative: "0.83.6", entry: "index.js", hermes: { ios: true, android: true } });
+    expect(measurement.project).toEqual({ name: "app", kind: "bare", reactNative: "0.83.6", entry: "index.js", hermes: { ios: true, android: true } });
     expect(JSON.stringify(measurement)).not.toContain(root);
 
     const ios = measurement.platforms.ios!;

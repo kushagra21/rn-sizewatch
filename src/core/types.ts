@@ -63,6 +63,8 @@ export interface PlatformMeasurement {
 export interface ProjectInfo {
   /** Absolute; never written to the measurement file. */
   root: string;
+  /** package.json name. */
+  name?: string;
   kind: "bare" | "expo";
   reactNative: string;
   expo?: string;

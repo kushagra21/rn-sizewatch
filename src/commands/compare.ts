@@ -5,7 +5,9 @@ import { checkBudgets, type BudgetResult } from "../compare/budgets.js";
 import { compare, type Comparison } from "../compare/diff.js";
 import { CONFIG_FILE, hasBudgets, loadConfig, parseSize } from "../core/config.js";
 import { UserError } from "../core/exec.js";
+import { formatBytes } from "../core/format.js";
 import type { Measurement } from "../core/types.js";
+import { introducedHints } from "../hints/rules.js";
 import { renderMarkdown } from "../render/markdown.js";
 import { renderBudgets, renderTerminal } from "../render/terminal.js";
 import { DEFAULT_OUT } from "./measure.js";
@@ -42,7 +44,8 @@ export function runCompare(basePath: string, headPath: string, options: CompareO
   const head = readMeasurement(resolve(root, headPath));
   const comparison = compare(base, head);
   const budgets = checkBudgets(config, head, base);
-  return { comparison, budgets, threshold, markdown: renderMarkdown(comparison, { threshold, budgets, version }), failed: budgets.some((b) => !b.pass) };
+  const hints = introducedHints(base, head);
+  return { comparison, budgets, threshold, hints, markdown: renderMarkdown(comparison, { threshold, budgets, version, hints }), failed: budgets.some((b) => !b.pass) };
 }
 
 const forJson = (comparison: Comparison, budgets: BudgetResult[]) => {
@@ -60,6 +63,7 @@ export function compareCommand(base: string, head: string, options: CompareOptio
   if (options.json) console.log(JSON.stringify(forJson(result.comparison, result.budgets), null, 2));
   else {
     console.log(renderTerminal(result.comparison, { threshold: result.threshold, budgets: result.budgets, all: options.all }));
+    for (const hint of result.hints) console.log(`${pc.yellow("💡")} ${hint.title} ${pc.dim(`(${formatBytes(hint.bytes)}, new in this change)`)}`);
     if (options.markdown) console.log(pc.dim(`\nComment written to ${displayPath(resolve(options.cwd, options.markdown))}`));
   }
   if (result.failed) process.exitCode = 1;

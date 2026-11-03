@@ -57,12 +57,14 @@ export async function ciRunCommand(options: CiRunOptions, version: string) {
     baseFile: options.baseFile || undefined,
     prNumber: options.pr ? Number(options.pr) : undefined,
     headSha: github?.context.event.pull_request?.head?.sha,
+    reportUrl: process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL ?? "https://github.com"}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}#artifacts` : undefined,
     comment: options.comment !== "false",
     version,
   });
   if (result.markdown) addSummary(result.markdown);
   setOutputs({
     "measure-file": result.measureFile,
+    "report-file": result.reportFile,
     "base-built-file": result.baseBuiltFile,
     "budget-failed": String(result.failed),
     commented: result.commented,

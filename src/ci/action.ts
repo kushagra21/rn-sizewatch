@@ -9,6 +9,8 @@ import { runMeasure } from "../commands/measure.js";
 import { loadConfig } from "../core/config.js";
 import { exec as realExec, tail, UserError, type Exec } from "../core/exec.js";
 import type { Platform } from "../core/types.js";
+import { writeReport } from "../commands/report.js";
+import { introducedHints } from "../hints/rules.js";
 import { commentMarker, renderMarkdown } from "../render/markdown.js";
 import { GitHub, GitHubError } from "./github.js";
 
@@ -115,12 +117,16 @@ export interface RunOptions {
    * a commit nobody sees, so the comment names this one instead.
    */
   headSha?: string;
+  /** The run's page, where the report artifact can be downloaded. */
+  reportUrl?: string;
   comment: boolean;
   version: string;
 }
 
 export interface RunResult {
   measureFile: string;
+  /** The HTML report, saved as an artifact by the action. */
+  reportFile: string;
   /** A base measurement built in this run, worth saving for the next PR. */
   baseBuiltFile?: string;
   failed: boolean;
@@ -176,8 +182,12 @@ export async function upsertComment(github: GitHub, prNumber: number, body: stri
 export async function run(github: GitHub | undefined, options: RunOptions, context: { exec?: Exec; log?: (m: string) => void } = {}): Promise<RunResult> {
   const exec = context.exec ?? realExec;
   const log = context.log ?? console.log;
-  const { file: measureFile } = await runMeasure({ cwd: options.cwd, platform: options.platform, out: join(options.tmp, "head") }, { version: options.version, exec, warn: log, progress: log });
-  if (options.mode === "baseline") return { measureFile, failed: false };
+  const { file: measureFile, measurement } = await runMeasure({ cwd: options.cwd, platform: options.platform, out: join(options.tmp, "head") }, { version: options.version, exec, warn: log, progress: log });
+  const reportFile = join(options.tmp, "report.html");
+  if (options.mode === "baseline") {
+    writeReport(measurement, undefined, reportFile, options.version);
+    return { measureFile, reportFile, failed: false };
+  }
 
   let baseFile = options.baseFile && existsSync(options.baseFile) ? options.baseFile : undefined;
   let baseBuiltFile: string | undefined;
@@ -192,7 +202,15 @@ export async function run(github: GitHub | undefined, options: RunOptions, conte
   if (options.headSha) head.git = { ...head.git, commit: options.headSha };
   const comparison = compare(base, head);
   const budgets = checkBudgets(config, head, base);
-  const markdown = renderMarkdown(comparison, { threshold: config.threshold, budgets, version: options.version, name: options.name });
+  writeReport(head, base, reportFile, options.version);
+  const markdown = renderMarkdown(comparison, {
+    threshold: config.threshold,
+    budgets,
+    version: options.version,
+    name: options.name,
+    hints: introducedHints(base, head),
+    ...(options.reportUrl ? { reportUrl: options.reportUrl } : {}),
+  });
   const failed = budgets.some((b) => !b.pass);
 
   let commented: RunResult["commented"];
@@ -200,5 +218,5 @@ export async function run(github: GitHub | undefined, options: RunOptions, conte
     commented = await upsertComment(github, options.prNumber, markdown, commentMarker(options.name));
     if (commented === "forbidden") log("This token can't comment on the pull request (a fork's token is read-only); the result is in the job summary.");
   }
-  return { measureFile, ...(baseBuiltFile ? { baseBuiltFile } : {}), failed, ...(commented ? { commented } : {}), markdown };
+  return { measureFile, reportFile, ...(baseBuiltFile ? { baseBuiltFile } : {}), failed, ...(commented ? { commented } : {}), markdown };
 }

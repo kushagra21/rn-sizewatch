@@ -5,57 +5,10 @@ import { checkBudgets } from "../src/compare/budgets.js";
 import { compare, type Change } from "../src/compare/diff.js";
 import { runCompare } from "../src/commands/compare.js";
 import { parseConfig, parseSize } from "../src/core/config.js";
-import type { Measurement, PackageSize, PlatformMeasurement, SourceSize } from "../src/core/types.js";
+import type { Measurement } from "../src/core/types.js";
 import { MARKDOWN, describe as describeChange } from "../src/render/describe.js";
 import { COMMENT_MARKER, renderMarkdown } from "../src/render/markdown.js";
-import { makeDir } from "./helpers.js";
-
-interface Spec {
-  packages?: (Omit<PackageSize, "files"> & { files?: Record<string, number> })[];
-  app?: Record<string, number>;
-  data?: Record<string, number>;
-  runtime?: number;
-  assets?: Record<string, number>;
-  hermes?: number;
-}
-
-/** A platform measurement from just the parts a test cares about; sizes add up like the real thing. */
-function platform(spec: Spec): PlatformMeasurement {
-  const sources: SourceSize[] = [];
-  const packages: PackageSize[] = [];
-  for (const { files = { "index.js": 0 }, ...pkg } of spec.packages ?? []) {
-    const entries = Object.entries(files);
-    const each = entries.some(([, b]) => b) ? undefined : pkg.bytes / entries.length;
-    for (const [file, bytes] of entries) sources.push({ path: `${pkg.dir}/${file}`, bytes: each ?? bytes, kind: "package", package: pkg.dir });
-    packages.push({ ...pkg, files: entries.length });
-  }
-  for (const [path, bytes] of Object.entries(spec.app ?? {})) sources.push({ path, bytes, kind: "app" });
-  for (const [path, bytes] of Object.entries(spec.data ?? {})) sources.push({ path, bytes, kind: "data" });
-  if (spec.runtime) sources.push({ path: "__prelude__", bytes: spec.runtime, kind: "runtime" });
-  const sum = (kind: SourceSize["kind"]) => sources.filter((s) => s.kind === kind).reduce((a, s) => a + s.bytes, 0);
-  const js = sources.reduce((a, s) => a + s.bytes, 0);
-  const assetFiles = Object.entries(spec.assets ?? {}).map(([path, bytes]) => ({ path, bytes }));
-  return {
-    js: { raw: js, gzip: Math.round(js / 4), brotli: Math.round(js / 5) },
-    ...(spec.hermes !== undefined ? { hermes: { raw: spec.hermes, gzip: Math.round(spec.hermes / 2.5), brotli: Math.round(spec.hermes / 3) } } : {}),
-    assets: { bytes: assetFiles.reduce((a, f) => a + f.bytes, 0), count: assetFiles.length, files: assetFiles },
-    breakdown: { app: sum("app"), data: sum("data"), package: sum("package"), runtime: sum("runtime") },
-    packages,
-    sources,
-    timings: { bundleMs: 1000 },
-  };
-}
-
-function measurement(ios: Spec, android: Spec | null = ios, commit = "a".repeat(40)): Measurement {
-  return {
-    schemaVersion: 1,
-    tool: { name: "rn-sizewatch", version: "0.0.0" },
-    createdAt: "2026-11-03T00:00:00.000Z",
-    git: { commit, branch: "main" },
-    project: { kind: "bare", reactNative: "0.83.6", entry: "index.js", hermes: { ios: true, android: true } },
-    platforms: { ios: platform(ios), ...(android ? { android: platform(android) } : {}) },
-  };
-}
+import { makeDir, measurement } from "./helpers.js";
 
 const RN = { name: "react-native", version: "0.83.6", dir: "node_modules/react-native", bytes: 800_000, via: [] };
 const byKind = (changes: Change[], kind: Change["kind"]) => changes.filter((c) => c.kind === kind);

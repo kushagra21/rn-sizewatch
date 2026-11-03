@@ -60,6 +60,7 @@ export function detectProject(root: string, options: { entry?: string } = {}): P
   if (options.entry && !existsSync(join(root, options.entry))) throw new UserError(`Entry file ${options.entry} doesn't exist.`);
   return {
     root,
+    ...(typeof pkg.name === "string" ? { name: pkg.name } : {}),
     kind,
     reactNative,
     ...(expo ? { expo } : {}),

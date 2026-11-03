@@ -1,6 +1,7 @@
 import type { BudgetResult } from "../compare/budgets.js";
 import { biggest, type Change, type Comparison, type Totals } from "../compare/diff.js";
 import { formatBytes } from "../core/format.js";
+import type { Hint } from "../hints/rules.js";
 import { ICON, MARKDOWN, PLATFORM_LABEL, describe, describeBudget, signed } from "./describe.js";
 
 /** Marks the bot's comment so the GitHub Action can find and update it; one per app name. */
@@ -15,6 +16,10 @@ export interface MarkdownOptions {
   name?: string;
   /** Rows shown before the collapsed list. */
   top?: number;
+  /** Suggestions for problems this change brings; old ones stay in the report. */
+  hints?: Hint[];
+  /** Where the full HTML report can be downloaded. */
+  reportUrl?: string;
 }
 
 const escape = (text: string) => text.replaceAll("|", "\\|").replaceAll("\n", " ");
@@ -84,11 +89,20 @@ export function renderMarkdown(comparison: Comparison, options: MarkdownOptions)
     }
   }
 
+  const hints = options.hints ?? [];
+  if (hints.length) {
+    lines.push(`💡 **Worth a look** <sub>(new in this change)</sub>`, "");
+    for (const hint of hints.slice(0, 3)) lines.push(`- **${hint.title}** (${formatBytes(hint.bytes)}): ${hint.fix.replaceAll("\n", " ")}`);
+    if (hints.length > 3) lines.push(`- and ${hints.length - 3} more in the full report`);
+    lines.push("");
+  }
+
   const { base, head } = comparison;
   const ref = (m: typeof base) => `${short(m.git?.commit)}${m.git?.branch ? ` (${m.git.branch})` : ""}`;
   const footer = [
     ...(base.git || head.git ? [`base ${ref(base)} · head ${ref(head)}`] : []),
     ...(comparison.skipped.length ? [`${comparison.skipped.map((p) => PLATFORM_LABEL[p]).join(", ")} measured on one side only`] : []),
+    ...(options.reportUrl ? [`[full report](${options.reportUrl})`] : []),
     `rn-sizewatch ${options.version}`,
   ];
   lines.push(`<sub>${footer.join(" · ")}</sub>`);

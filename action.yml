@@ -100,6 +100,15 @@ runs:
         if-no-files-found: error
         overwrite: true
 
+    - name: Save the report
+      if: steps.run.outputs.report-file != ''
+      continue-on-error: true
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ steps.prepare.outputs.artifact }}-report
+        path: ${{ steps.run.outputs.report-file }}
+        retention-days: 30
+
     - name: Save the base measurement built here
       if: steps.run.outputs.base-built-file != ''
       continue-on-error: true

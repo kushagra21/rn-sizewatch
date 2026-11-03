@@ -37,6 +37,7 @@ jobs:
 - Pull requests that only touch native code, docs or CI config are skipped in seconds.
 - The result also goes to the job summary, so pull requests from forks, whose tokens can't comment, still get it.
 - It fails the check when a budget in `sizewatch.config.json` fails, unless `fail-on-budget: false`.
+- Each run saves an HTML report as an artifact, linked from the comment. The comment also lists suggestions for problems the pull request brings in; ones that were already there stay in the report.
 
 No native build is needed, so it runs on `ubuntu-latest`.
 
@@ -146,6 +147,26 @@ Put budgets in `sizewatch.config.json` at your app's root:
 - Every key is optional; with no budgets, nothing fails.
 
 `npx rn-sizewatch check` checks `.sizewatch/measure.json` against them without a base.
+
+## Report
+
+```bash
+npx rn-sizewatch report                                   # from .sizewatch/measure.json
+npx rn-sizewatch report --base base/measure.json          # and what changed since the base
+```
+
+Writes `.sizewatch/report.html`, one file that works offline:
+
+- the sizes per platform, and their change against the base
+- a treemap of the JS bundle: packages, then their files; your code by folder. Click to open a block; with a base, colour it by what grew, shrank or is new
+- tables of packages (version, size, what pulls each in), your files and assets, sortable and filterable
+- suggestions, each with the bytes at stake. They're only made when the measurement shows the problem:
+  - more than one installed copy of a package
+  - a whole library bundled where single imports exist (`lodash`, `validator`, `crypto-js`)
+  - heavy packages with lighter options (`moment`, much of `core-js`, `aws-sdk` v2)
+  - many `moment` or `@formatjs` locales
+  - dev-only packages in the release bundle (Storybook, Reactotron, why-did-you-render, Redux DevTools)
+  - JSON files over 50 KB in the bundle, images over 200 KB
 
 ## Doctor
 
