@@ -57,8 +57,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: kushagra21/rn-sizewatch@main
+      - uses: kushagra21/rn-sizewatch@v0
 ```
+
+`@v0` follows the latest 0.x release; pin `@v0.1.0` to stay on one version.
 
 - **On a push** it measures the commit and saves the result as an artifact, the baseline for later pull requests.
 - **On a pull request** it measures the pull request merged onto its base branch, compares that with the base commit's saved measurement, and comments with what changed and why. It edits the same comment on every push. When no measurement of the base commit was saved (the first run, or one still going), it checks the base commit out, installs it with your package manager and measures it in the same job.
