@@ -4,6 +4,30 @@ Measure a React Native app's release JS bundle, Hermes bytecode and assets, and 
 
 > Early work: not on npm yet. The GitHub Action builds the CLI from this repository.
 
+## See it working
+
+Everything below comes from real runs on [rn-sizewatch-demo](https://github.com/kushagra21/rn-sizewatch-demo), a plain React Native 0.83 app.
+
+**The pull request comment**, from [demo PR #4](https://github.com/kushagra21/rn-sizewatch-demo/pull/4), which adds `moment` and all of `lodash`:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/comment-dark.png">
+  <img alt="The rn-sizewatch comment on a pull request: a table of JS bundle, Hermes, assets and OTA download sizes for iOS and Android with their growth, two failed growth budgets, the two new packages that caused it, and suggestions to import single lodash functions and replace moment with dayjs." src="docs/images/comment-light.png" width="640">
+</picture>
+
+**The report** linked from that comment. [Open it live](https://kushagra21.github.io/rn-sizewatch/) to zoom into the treemap, switch platforms and sort the tables; nothing to install.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/report-dark.png">
+  <img alt="The rn-sizewatch HTML report: size cards with their change, two suggestions marked new in this change, and a treemap of the JS bundle where the new lodash and moment blocks are highlighted in red." src="docs/images/report-light.png" width="880">
+</picture>
+
+More real comments from the bot:
+
+- [PR #1](https://github.com/kushagra21/rn-sizewatch-demo/pull/1): adding `formik` shows lodash and others as *pulled in by formik*, and fails the 50 KB growth budget
+- [PR #2](https://github.com/kushagra21/rn-sizewatch-demo/pull/2): a JSON file shows up as your data inside the bundle, an image under assets
+- [PR #3](https://github.com/kushagra21/rn-sizewatch-demo/pull/3): a React Native upgrade from 0.83.6 to 0.83.10, edited in place after a second push
+
 ## GitHub Action
 
 Add a workflow to your app's repository:
