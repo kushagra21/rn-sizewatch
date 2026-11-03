@@ -110,6 +110,11 @@ export interface RunOptions {
   /** The downloaded base measurement; built from baseSha when missing. */
   baseFile?: string;
   prNumber?: number;
+  /**
+   * The pull request's own last commit. A pull request run measures GitHub's merge of it onto the base,
+   * a commit nobody sees, so the comment names this one instead.
+   */
+  headSha?: string;
   comment: boolean;
   version: string;
 }
@@ -184,6 +189,7 @@ export async function run(github: GitHub | undefined, options: RunOptions, conte
   const config = loadConfig(resolve(options.cwd));
   const base = readMeasurement(baseFile);
   const head = readMeasurement(measureFile);
+  if (options.headSha) head.git = { ...head.git, commit: options.headSha };
   const comparison = compare(base, head);
   const budgets = checkBudgets(config, head, base);
   const markdown = renderMarkdown(comparison, { threshold: config.threshold, budgets, version: options.version, name: options.name });

@@ -128,12 +128,14 @@ describe("run", () => {
     const first = await run(undefined, { cwd: root, mode: "baseline", tmp: join(tmp, "first"), comment: false, version: "0" }, { exec, log: () => {} });
     const { github, calls } = fakeGitHub({ "GET /repos/me/app/issues/7/comments": [], "POST /repos/me/app/issues/7/comments": {} });
 
-    const result = await run(github, { cwd: root, mode: "pr", tmp, baseFile: first.measureFile, prNumber: 7, comment: true, version: "0.1.0" }, { exec, log: () => {} });
+    const result = await run(github, { cwd: root, mode: "pr", tmp, baseFile: first.measureFile, prNumber: 7, headSha: "f".repeat(40), comment: true, version: "0.1.0" }, { exec, log: () => {} });
     expect(result.failed).toBe(true);
     expect(result.commented).toBe("created");
     expect(result.baseBuiltFile).toBeUndefined();
     expect(calls.at(-1)!.body.body).toContain("No size changes.");
     expect(calls.at(-1)!.body.body).toContain("❌ **Budgets:**");
+    // The comment names the pull request's commit, not GitHub's merge commit that was measured.
+    expect(calls.at(-1)!.body.body).toContain("head `fffffff`");
   });
 
   it("builds the base commit in a worktree, installed with the project's package manager, when nothing was saved", async () => {

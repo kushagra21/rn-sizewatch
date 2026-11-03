@@ -56,6 +56,7 @@ export async function ciRunCommand(options: CiRunOptions, version: string) {
     baseSha: options.baseSha || undefined,
     baseFile: options.baseFile || undefined,
     prNumber: options.pr ? Number(options.pr) : undefined,
+    headSha: github?.context.event.pull_request?.head?.sha,
     comment: options.comment !== "false",
     version,
   });
