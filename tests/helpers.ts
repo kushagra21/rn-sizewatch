@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { SourceMapInput } from "@jridgewell/trace-mapping";
@@ -6,7 +6,7 @@ import { addMapping, setSourceContent, toEncodedMap, GenMapping } from "@jridgew
 
 /** A temporary folder with the given files; values that aren't strings are written as JSON. */
 export function makeDir(files: Record<string, unknown>): string {
-  const root = mkdtempSync(join(tmpdir(), "rn-sizewatch-"));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "rn-sizewatch-")));
   for (const [path, content] of Object.entries(files)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), typeof content === "string" ? content : JSON.stringify(content));

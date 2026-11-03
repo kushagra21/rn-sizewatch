@@ -33,6 +33,11 @@ export interface PackageSize {
   dir: string;
   bytes: number;
   files: number;
+  /**
+   * The chain of packages that brings this one in, from one of the app's direct dependencies down
+   * to its parent; [] when the app depends on it directly. Absent when no dependency leads to it.
+   */
+  via?: string[];
 }
 
 export interface AssetSize {

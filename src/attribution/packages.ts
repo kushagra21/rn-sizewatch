@@ -43,8 +43,11 @@ const versionAt = (root: string, dir: string) => {
   }
 };
 
-/** Turns bytes per source map source into per-file sizes, per-package sizes and totals by kind. */
-export function attribute(bytes: Map<string, number>, root: string) {
+/**
+ * Turns bytes per source map source into per-file sizes, per-package sizes and totals by kind.
+ * `chains` (from dependencyChains) says which dependency brings in each package folder.
+ */
+export function attribute(bytes: Map<string, number>, root: string, chains: Map<string, string[]> = new Map()) {
   const sources: SourceSize[] = [];
   const packages = new Map<string, PackageSize>();
   const breakdown = Object.fromEntries(SOURCE_KINDS.map((kind) => [kind, 0])) as Record<SourceKind, number>;
@@ -64,6 +67,8 @@ export function attribute(bytes: Map<string, number>, root: string) {
   for (const pkg of packages.values()) {
     const version = versionAt(root, pkg.dir);
     if (version) pkg.version = version;
+    const via = chains.get(pkg.dir);
+    if (via) pkg.via = via;
   }
   const bySize = <T extends { bytes: number }>(list: T[], key: (item: T) => string) =>
     list.sort((a, b) => b.bytes - a.bytes || key(a).localeCompare(key(b)));

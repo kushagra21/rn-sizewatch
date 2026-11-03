@@ -102,3 +102,26 @@ describe("attribute", () => {
     expect(sources[0]).toEqual({ path: "node_modules/a/node_modules/lodash/index.js", kind: "package", package: "node_modules/a/node_modules/lodash", bytes: 400 });
   });
 });
+
+describe("dependencyChains", () => {
+  it("finds the shortest chain from a direct dependency, and nested copies by their own folder", async () => {
+    const { dependencyChains } = await import("../src/attribution/dependencies.js");
+    const root = makeDir({
+      "package.json": { dependencies: { "my-utils": "1", "date-picker": "1" }, devDependencies: { "@babel/runtime": "7" } },
+      "node_modules/my-utils/package.json": { dependencies: { lodash: "4" } },
+      "node_modules/date-picker/package.json": { dependencies: { moment: "2", "my-utils": "1", "@babel/runtime": "7.20" } },
+      "node_modules/date-picker/node_modules/@babel/runtime/package.json": {},
+      "node_modules/lodash/package.json": {},
+      "node_modules/moment/package.json": { peerDependencies: { "not-installed": "1" } },
+      "node_modules/@babel/runtime/package.json": {},
+    });
+    expect(Object.fromEntries(dependencyChains(root))).toEqual({
+      "node_modules/my-utils": [],
+      "node_modules/date-picker": [],
+      "node_modules/@babel/runtime": [],
+      "node_modules/lodash": ["my-utils"],
+      "node_modules/moment": ["date-picker"],
+      "node_modules/date-picker/node_modules/@babel/runtime": ["date-picker"],
+    });
+  });
+});

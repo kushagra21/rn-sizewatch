@@ -1,11 +1,13 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import pc from "picocolors";
+import { dependencyChains } from "../attribution/dependencies.js";
 import { attribute } from "../attribution/packages.js";
 import { bytesBySource } from "../attribution/sourcemap.js";
 import { compileHermes, findHermesc } from "../bundle/hermes.js";
 import { bundleFiles, writeBundle } from "../bundle/metro.js";
 import { measureAssets, sizesOf } from "../bundle/sizes.js";
+import { loadConfig } from "../core/config.js";
 import { exec as realExec, ToolMissingError, type Exec } from "../core/exec.js";
 import { formatBytes, formatMs } from "../core/format.js";
 import { detectProject } from "../core/project.js";
@@ -13,7 +15,8 @@ import { PLATFORMS, type Measurement, type Platform, type PlatformMeasurement, t
 
 export interface MeasureOptions {
   cwd: string;
-  platform: Platform | "both";
+  /** Default: the config's platforms, else both. */
+  platform?: Platform | "both";
   entry?: string;
   /** Folder for the bundles and measure.json, relative to cwd. */
   out?: string;
@@ -54,6 +57,7 @@ async function measurePlatform(
   outDir: string,
   options: MeasureOptions,
   warn: (message: string) => void,
+  chains: Map<string, string[]>,
 ): Promise<{ done: Promise<PlatformMeasurement> }> {
   const dir = join(outDir, platform);
   rmSync(dir, { recursive: true, force: true });
@@ -63,7 +67,7 @@ async function measurePlatform(
   const { ms: bundleMs } = await writeBundle(exec, project, platform, files, { resetCache: options.resetCache });
   const code = readFileSync(files.bundle);
   const map = readFileSync(files.sourcemap, "utf8");
-  const { sources, packages, breakdown } = attribute(bytesBySource(code.toString("utf8"), map), project.root);
+  const { sources, packages, breakdown } = attribute(bytesBySource(code.toString("utf8"), map), project.root, chains);
   const timings: PlatformMeasurement["timings"] = { bundleMs };
 
   let bytecode: Buffer | undefined;
@@ -96,10 +100,12 @@ export async function runMeasure(
 ): Promise<{ measurement: Measurement; file: string }> {
   const exec = context.exec ?? realExec;
   const warn = context.warn ?? (() => {});
-  const root = resolve(options.cwd);
-  const project = detectProject(root, { entry: options.entry });
+  // Metro writes real paths in source maps, so a symlinked root has to be resolved to match them.
+  const root = realpathSync(resolve(options.cwd));
+  const config = loadConfig(root);
+  const project = detectProject(root, { entry: options.entry ?? config.entry });
   const outDir = resolve(root, options.out ?? DEFAULT_OUT);
-  const platforms = options.platform === "both" ? [...PLATFORMS] : [options.platform];
+  const platforms = options.platform === "both" ? [...PLATFORMS] : options.platform ? [options.platform] : (config.platforms ?? [...PLATFORMS]);
 
   const measurement: Measurement = {
     schemaVersion: 1,
@@ -111,11 +117,12 @@ export async function runMeasure(
   const git = await gitInfo(exec, root);
   if (git) measurement.git = git;
 
+  const chains = dependencyChains(root);
   // Bundles one at a time: two Metro processes would fight over the same cache.
   const pending: Promise<void>[] = [];
   for (const platform of platforms) {
     context.progress?.(`Bundling ${platform}…`);
-    const { done } = await measurePlatform(exec, project, platform, outDir, options, warn);
+    const { done } = await measurePlatform(exec, project, platform, outDir, options, warn, chains);
     pending.push(done.then((m) => void (measurement.platforms[platform] = m)));
   }
   await Promise.all(pending);
