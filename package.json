@@ -1,0 +1,56 @@
+{
+  "name": "rn-sizewatch",
+  "version": "0.0.0",
+  "description": "Measure the release JS bundle, Hermes bytecode and assets of a React Native app, and see which packages and files the bytes come from.",
+  "license": "MIT",
+  "author": "Kushagra Sinha",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kushagra21/rn-sizewatch.git"
+  },
+  "homepage": "https://github.com/kushagra21/rn-sizewatch#readme",
+  "bugs": "https://github.com/kushagra21/rn-sizewatch/issues",
+  "type": "module",
+  "bin": {
+    "rn-sizewatch": "dist/cli.js"
+  },
+  "files": [
+    "dist/cli.js",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "bundle-size",
+    "hermes",
+    "metro",
+    "size-limit",
+    "performance",
+    "ci",
+    "cli"
+  ],
+  "dependencies": {
+    "@jridgewell/trace-mapping": "^0.3.31",
+    "commander": "^15.0.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@jridgewell/gen-mapping": "^0.3.13",
+    "@types/node": "^26.6.6",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
