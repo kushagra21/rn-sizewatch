@@ -2,7 +2,52 @@
 
 Measure a React Native app's release JS bundle, Hermes bytecode and assets, and see which packages and files the bytes come from. Works with bare React Native and Expo.
 
-> Early work. `measure`, `compare`, `check` and `doctor` work today; the GitHub Action that comments on pull requests is next.
+> Early work: not on npm yet. The GitHub Action builds the CLI from this repository.
+
+## GitHub Action
+
+Add a workflow to your app's repository:
+
+```yaml
+# .github/workflows/size.yml
+name: Bundle size
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+jobs:
+  size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: kushagra21/rn-sizewatch@main
+```
+
+- **On a push** it measures the commit and saves the result as an artifact, the baseline for later pull requests.
+- **On a pull request** it measures the pull request merged onto its base branch, compares that with the base commit's saved measurement, and comments with what changed and why. It edits the same comment on every push. When no measurement of the base commit was saved (the first run, or one still going), it checks the base commit out, installs it with your package manager and measures it in the same job.
+- Pull requests that only touch native code, docs or CI config are skipped in seconds.
+- The result also goes to the job summary, so pull requests from forks, whose tokens can't comment, still get it.
+- It fails the check when a budget in `sizewatch.config.json` fails, unless `fail-on-budget: false`.
+
+No native build is needed, so it runs on `ubuntu-latest`.
+
+| Input | |
+|---|---|
+| `working-directory` | the app's folder (default `.`) |
+| `platforms` | `ios`, `android` or `both` (default: the config's, else both) |
+| `comment` | `false` to only write the job summary |
+| `fail-on-budget` | `false` to comment without failing |
+| `name` | when one repository measures several apps: keeps their comments and baselines apart |
+| `github-token` | default `github.token`; needs `pull-requests: write` and `actions: read` |
 
 ## Measure
 

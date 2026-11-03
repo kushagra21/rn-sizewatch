@@ -1,4 +1,5 @@
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { ToolMissingError, type Exec, type ExecResult } from "../src/core/exec.js";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { SourceMapInput } from "@jridgewell/trace-mapping";
@@ -44,3 +45,44 @@ export function makeBundle(lines: Line[], sources: string[]) {
   });
   return { code: lines.map((l) => l.text).join("\n"), map: toEncodedMap(map) as unknown as SourceMapInput };
 }
+
+export const ok = (stdout = ""): ExecResult => ({ stdout, stderr: "", exitCode: 0 });
+export const argAfter = (args: string[], flag: string) => args[args.indexOf(flag) + 1]!;
+
+/** A machine where Metro writes a small bundle with one asset, hermesc writes bytecode, and git may be missing. */
+export function fakeExec(options: { git?: boolean; metroFails?: boolean; other?: (file: string, args: string[], cwd?: string) => ExecResult | undefined } = {}): Exec & { calls: string[][] } {
+  const calls: string[][] = [];
+  const run = (async (file: string, args: string[], execOptions?: { cwd?: string }) => {
+    calls.push([file, ...args]);
+    const handled = options.other?.(file, args, execOptions?.cwd);
+    if (handled) return handled;
+    if (file === "git") {
+      if (!options.git) throw new ToolMissingError("git");
+      return ok(args.includes("--abbrev-ref") ? "feature/x\n" : "abc123\n");
+    }
+    if (file === process.execPath) {
+      if (options.metroFails) return { stdout: "", stderr: "info Writing bundle\nerror Unable to resolve module ./missing", exitCode: 1 };
+      const root = dirname(dirname(dirname(args[0]!)));
+      const { code, map } = makeBundle(
+        [
+          { text: "__d(function(){var a=1},0,[]);", maps: [{ column: 15, source: `${root}/index.js` }] },
+          { text: "__d(function(){var lodash=1},1,[]);", maps: [{ column: 15, source: `${root}/node_modules/lodash/index.js` }] },
+        ],
+        [`${root}/index.js`, `${root}/node_modules/lodash/index.js`],
+      );
+      writeFileSync(argAfter(args, "--bundle-output"), code);
+      writeFileSync(argAfter(args, "--sourcemap-output"), JSON.stringify(map));
+      mkdirSync(join(argAfter(args, "--assets-dest"), "img"), { recursive: true });
+      writeFileSync(join(argAfter(args, "--assets-dest"), "img", "logo.png"), Buffer.alloc(1234));
+      return ok();
+    }
+    if (file === "/fake/hermesc") {
+      writeFileSync(argAfter(args, "-out"), Buffer.alloc(5000, 7));
+      return ok();
+    }
+    throw new Error(`unexpected ${file}`);
+  }) as Exec & { calls: string[][] };
+  run.calls = calls;
+  return run;
+}
+

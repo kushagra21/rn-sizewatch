@@ -3,13 +3,16 @@ import { biggest, type Change, type Comparison, type Totals } from "../compare/d
 import { formatBytes } from "../core/format.js";
 import { ICON, MARKDOWN, PLATFORM_LABEL, describe, describeBudget, signed } from "./describe.js";
 
-/** Marks the bot's comment so the GitHub Action can find and update it. */
+/** Marks the bot's comment so the GitHub Action can find and update it; one per app name. */
 export const COMMENT_MARKER = "<!-- rn-sizewatch -->";
+export const commentMarker = (name?: string) => (name ? `<!-- rn-sizewatch:${name.replaceAll("--", "-")} -->` : COMMENT_MARKER);
 
 export interface MarkdownOptions {
   threshold: number;
   budgets: BudgetResult[];
   version: string;
+  /** Which app, when one repository measures several. */
+  name?: string;
   /** Rows shown before the collapsed list. */
   top?: number;
 }
@@ -66,7 +69,7 @@ const short = (commit?: string) => (commit ? `\`${commit.slice(0, 7)}\`` : "unkn
 export function renderMarkdown(comparison: Comparison, options: MarkdownOptions): string {
   const { threshold, top = 10 } = options;
   const notable = comparison.changes.filter((c) => biggest(c) >= threshold);
-  const lines = [COMMENT_MARKER, "### 📦 rn-sizewatch", "", ...totalsTable(comparison, threshold), "", ...budgetLines(options.budgets)];
+  const lines = [commentMarker(options.name), `### 📦 rn-sizewatch${options.name ? ` · ${escape(options.name)}` : ""}`, "", ...totalsTable(comparison, threshold), "", ...budgetLines(options.budgets)];
 
   if (comparison.changes.length === 0) {
     lines.push("No size changes.", "");

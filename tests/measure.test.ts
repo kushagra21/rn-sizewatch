@@ -1,15 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runMeasure, summary } from "../src/commands/measure.js";
 import { bundleCommand, bundleFiles } from "../src/bundle/metro.js";
 import { findHermesc } from "../src/bundle/hermes.js";
-import { ToolMissingError, UserError, type Exec, type ExecResult } from "../src/core/exec.js";
+import { UserError } from "../src/core/exec.js";
 import { detectProject } from "../src/core/project.js";
-import { bareApp, makeBundle, makeDir } from "./helpers.js";
+import { argAfter, bareApp, fakeExec, makeDir } from "./helpers.js";
 
-const ok = (stdout = ""): ExecResult => ({ stdout, stderr: "", exitCode: 0 });
-const argAfter = (args: string[], flag: string) => args[args.indexOf(flag) + 1]!;
 
 describe("detectProject", () => {
   it("finds a bare app's entry and keeps Hermes on by default", () => {
@@ -83,41 +81,6 @@ describe("findHermesc", () => {
     expect(findHermesc(bareApp(), "/usr/bin/hermesc")).toBe("/usr/bin/hermesc");
   });
 });
-
-/** A machine where Metro writes a small bundle with one asset, hermesc writes bytecode, and git may be missing. */
-function fakeExec(options: { git?: boolean; metroFails?: boolean } = {}): Exec & { calls: string[][] } {
-  const calls: string[][] = [];
-  const run = (async (file: string, args: string[]) => {
-    calls.push([file, ...args]);
-    if (file === "git") {
-      if (!options.git) throw new ToolMissingError("git");
-      return ok(args.includes("--abbrev-ref") ? "feature/x\n" : "abc123\n");
-    }
-    if (file === process.execPath) {
-      if (options.metroFails) return { stdout: "", stderr: "info Writing bundle\nerror Unable to resolve module ./missing", exitCode: 1 };
-      const root = dirname(dirname(dirname(args[0]!)));
-      const { code, map } = makeBundle(
-        [
-          { text: "__d(function(){var a=1},0,[]);", maps: [{ column: 15, source: `${root}/index.js` }] },
-          { text: "__d(function(){var lodash=1},1,[]);", maps: [{ column: 15, source: `${root}/node_modules/lodash/index.js` }] },
-        ],
-        [`${root}/index.js`, `${root}/node_modules/lodash/index.js`],
-      );
-      writeFileSync(argAfter(args, "--bundle-output"), code);
-      writeFileSync(argAfter(args, "--sourcemap-output"), JSON.stringify(map));
-      mkdirSync(join(argAfter(args, "--assets-dest"), "img"), { recursive: true });
-      writeFileSync(join(argAfter(args, "--assets-dest"), "img", "logo.png"), Buffer.alloc(1234));
-      return ok();
-    }
-    if (file === "/fake/hermesc") {
-      writeFileSync(argAfter(args, "-out"), Buffer.alloc(5000, 7));
-      return ok();
-    }
-    throw new Error(`unexpected ${file}`);
-  }) as Exec & { calls: string[][] };
-  run.calls = calls;
-  return run;
-}
 
 describe("runMeasure", () => {
   const app = () => bareApp({ "node_modules/lodash/package.json": { version: "4.17.21" } });

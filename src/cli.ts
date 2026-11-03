@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { Command, Option } from "commander";
 import pc from "picocolors";
+import { ciPrepareCommand, ciRunCommand } from "./commands/ci.js";
 import { checkCommand, compareCommand } from "./commands/compare.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { DEFAULT_OUT, measureCommand } from "./commands/measure.js";
@@ -59,6 +60,25 @@ export function buildProgram(): Command {
     .description("Check that rn-sizewatch can find the project, its bundler, Hermes and git")
     .option("-C, --cwd <dir>", "the app's root folder", process.cwd())
     .action(doctorCommand);
+
+  const ci = program.command("ci").description("The steps of the GitHub Action (run inside GitHub Actions)");
+  ci.command("prepare")
+    .description("Decide whether to measure a baseline, compare a pull request or skip, and find the base measurement")
+    .option("-C, --cwd <dir>", "the app's root folder", process.cwd())
+    .option("--name <name>", "which app, when one repository measures several")
+    .action(ciPrepareCommand);
+  ci.command("run")
+    .description("Measure; on a pull request also compare with the base, write the job summary and comment")
+    .requiredOption("--mode <mode>", "baseline or pr")
+    .requiredOption("--tmp <dir>", "scratch folder for the measurements")
+    .option("-C, --cwd <dir>", "the app's root folder", process.cwd())
+    .option("--platform <platform>", "ios, android or both")
+    .option("--name <name>", "which app, when one repository measures several")
+    .option("--base-sha <sha>", "the base commit")
+    .option("--base-file <file>", "the base commit's downloaded measure.json")
+    .option("--pr <number>", "the pull request")
+    .option("--comment <bool>", "comment on the pull request", "true")
+    .action((options) => ciRunCommand(options, version));
 
   return program;
 }

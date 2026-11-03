@@ -1,0 +1,117 @@
+name: rn-sizewatch
+description: Comment on pull requests with how a React Native app's JS bundle, Hermes bytecode and assets change, and why.
+author: Kushagra Sinha
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  working-directory:
+    description: The app's folder, relative to the repository root.
+    default: "."
+  platforms:
+    description: ios, android or both. Default, the platforms in sizewatch.config.json, else both.
+    default: ""
+  comment:
+    description: Comment on the pull request (the result also goes to the job summary either way).
+    default: "true"
+  fail-on-budget:
+    description: Fail the check when a budget in sizewatch.config.json is exceeded.
+    default: "true"
+  name:
+    description: Which app, when one repository measures several; keeps their comments and saved measurements apart.
+    default: ""
+  github-token:
+    description: Token for reading saved measurements and commenting. Needs pull-requests write and actions read.
+    default: ${{ github.token }}
+
+outputs:
+  mode:
+    description: baseline (a push, measured for later pull requests), pr (compared), or skip (nothing relevant changed).
+    value: ${{ steps.prepare.outputs.mode }}
+  measure-file:
+    description: This commit's measure.json.
+    value: ${{ steps.run.outputs.measure-file }}
+  budget-failed:
+    description: true when a budget failed.
+    value: ${{ steps.run.outputs.budget-failed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up rn-sizewatch
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --no-audit --no-fund --ignore-scripts --loglevel=error && npm run build --silent
+
+    - name: Decide what to measure
+      id: prepare
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        RN_SIZEWATCH_TOKEN: ${{ inputs.github-token }}
+        NAME: ${{ inputs.name }}
+      run: node "$GITHUB_ACTION_PATH/dist/cli.js" ci prepare --name "$NAME"
+
+    - name: Restore the Metro cache
+      if: steps.prepare.outputs.mode != 'skip'
+      uses: actions/cache@v6
+      with:
+        path: ${{ steps.prepare.outputs.metro-cache }}
+        key: ${{ steps.prepare.outputs.cache-key }}
+        restore-keys: ${{ steps.prepare.outputs.cache-restore-keys }}
+
+    - name: Download the base measurement
+      if: steps.prepare.outputs.base-run-id != ''
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ steps.prepare.outputs.base-artifact }}
+        run-id: ${{ steps.prepare.outputs.base-run-id }}
+        github-token: ${{ inputs.github-token }}
+        path: ${{ runner.temp }}/rn-sizewatch/downloaded
+
+    - name: Measure
+      id: run
+      if: steps.prepare.outputs.mode != 'skip'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        RN_SIZEWATCH_TOKEN: ${{ inputs.github-token }}
+        MODE: ${{ steps.prepare.outputs.mode }}
+        TMP_DIR: ${{ runner.temp }}/rn-sizewatch
+        PLATFORMS: ${{ inputs.platforms }}
+        NAME: ${{ inputs.name }}
+        BASE_SHA: ${{ steps.prepare.outputs.base-sha }}
+        BASE_FILE: ${{ steps.prepare.outputs.base-run-id != '' && format('{0}/rn-sizewatch/downloaded/measure.json', runner.temp) || '' }}
+        PR: ${{ steps.prepare.outputs.pr-number }}
+        COMMENT: ${{ inputs.comment }}
+      run: >-
+        node "$GITHUB_ACTION_PATH/dist/cli.js" ci run
+        --mode "$MODE" --tmp "$TMP_DIR" --platform "$PLATFORMS" --name "$NAME"
+        --base-sha "$BASE_SHA" --base-file "$BASE_FILE" --pr "$PR" --comment "$COMMENT"
+
+    - name: Save this commit's measurement
+      if: steps.prepare.outputs.mode == 'baseline'
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ steps.prepare.outputs.artifact }}
+        path: ${{ steps.run.outputs.measure-file }}
+        retention-days: 90
+        if-no-files-found: error
+        overwrite: true
+
+    - name: Save the base measurement built here
+      if: steps.run.outputs.base-built-file != ''
+      continue-on-error: true
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ steps.prepare.outputs.base-artifact }}
+        path: ${{ steps.run.outputs.base-built-file }}
+        retention-days: 90
+
+    - name: Check budgets
+      if: steps.run.outputs.budget-failed == 'true' && inputs.fail-on-budget == 'true'
+      shell: bash
+      run: |
+        echo "::error title=rn-sizewatch::A size budget failed; see the pull request comment or the job summary."
+        exit 1
