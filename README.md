@@ -2,7 +2,11 @@
 
 Measure a React Native app's release JS bundle, Hermes bytecode and assets, and see which packages and files the bytes come from. Works with bare React Native and Expo.
 
-> Early work: not on npm yet. The GitHub Action builds the CLI from this repository.
+```bash
+npx rn-sizewatch measure && npx rn-sizewatch report
+```
+
+Run it from your app's root, then open `.sizewatch/report.html`. Needs Node 22.12 or later; no Xcode or Gradle build.
 
 ## See it working
 

@@ -18,9 +18,18 @@ export function packageOf(path: string): { name: string; dir: string } | undefin
   return { name, dir: path.slice(0, at + NODE_MODULES.length) + name };
 }
 
-/** A source map path as a forward-slash path relative to the project root. */
+/**
+ * A source map path as a forward-slash path relative to the project root. react-native bundle writes
+ * absolute paths; expo export:embed writes them from the project root with a leading slash
+ * (/App.tsx, /node_modules/expo/...), which only look absolute.
+ */
 export function projectPath(source: string, root: string): string {
-  const path = isAbsolute(source) ? relative(root, source) : source;
+  let path = source;
+  if (isAbsolute(source)) {
+    const rel = relative(root, source);
+    const rootRelative = rel.startsWith("..") && existsSync(join(root, source));
+    path = rootRelative ? source.replace(/^[/\\]+/, "") : rel;
+  }
   return path.split(sep).join("/");
 }
 

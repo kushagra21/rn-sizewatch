@@ -1,6 +1,6 @@
 {
   "name": "rn-sizewatch",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Measure the release JS bundle, Hermes bytecode and assets of a React Native app, and see which packages and files the bytes come from.",
   "license": "MIT",
   "author": "Kushagra Sinha",

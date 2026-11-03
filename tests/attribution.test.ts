@@ -125,3 +125,15 @@ describe("dependencyChains", () => {
     });
   });
 });
+
+describe("projectPath", () => {
+  it("reads Expo's root-relative paths, absolute paths, and paths above the root", async () => {
+    const { projectPath } = await import("../src/attribution/packages.js");
+    const root = makeDir({ "App.tsx": "", "node_modules/expo/index.js": "" });
+    expect(projectPath("/App.tsx", root)).toBe("App.tsx");
+    expect(projectPath("/node_modules/expo/index.js", root)).toBe("node_modules/expo/index.js");
+    expect(projectPath(`${root}/App.tsx`, root)).toBe("App.tsx");
+    // A monorepo's hoisted package above the app stays a path above the root.
+    expect(projectPath(`${root}/../node_modules/react/index.js`, root)).toBe("../node_modules/react/index.js");
+  });
+});
